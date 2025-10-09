@@ -1,0 +1,45 @@
+services:
+# Database service
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: ignitedb
+      MYSQL_USER: igniteuser
+      MYSQL_PASSWORD: ignitepassword
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+# phpMyAdmin service GUI for MySQL(see tables, run queries...)
+  phpmyadmin:
+      image: phpmyadmin/phpmyadmin
+      environment:
+        PMA_HOST: db
+        PMA_USER: igniteuser
+        PMA_PASSWORD: ignitepassword
+      ports:
+        - "8080:80"
+
+#backedn service
+  backend:
+    build: ./backend
+    depends_on:
+     - db
+    environment:
+      DATABASE_URL: mysql+pymysql://igniteuser:ignitepassword@db:3306/ignitedb
+      SECRET_KEY: SECRET_KEY
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+volumes:
+  db_data:
+
