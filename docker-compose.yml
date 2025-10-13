@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 5
   
-# phpMyAdmin service GUI for MySQL(see tables, run queries...)
+# phpMyAdmin service GUI for MySQL(see tables, run queries)
   phpmyadmin:
       image: phpmyadmin/phpmyadmin
       environment:

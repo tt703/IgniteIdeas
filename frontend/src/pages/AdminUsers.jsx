@@ -91,7 +91,7 @@ export default function AdminUsers() {
   }
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
+    <div className="p-4 max-w-3xl mx-auto bg-gray-50 min-h-screen">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Manage Users</h2>
         <div>

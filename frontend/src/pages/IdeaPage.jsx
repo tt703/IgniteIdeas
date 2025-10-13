@@ -1,4 +1,3 @@
-// src/pages/IdeaPage.jsx
 import React, { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import API from '../api/client'
@@ -32,23 +31,26 @@ export default function IdeaPage() {
       setLoading(true)
       setError(null)
       try {
-        const ideaPromise = API.get(`/api/ideas/${id}`)
-        const commentsPromise = API.get(`/api/ideas/${id}/comments`).catch(err => {
-          // treat 404 or no-comments as empty list
-          if (err?.response?.status === 404) return { data: [] }
-          throw err
-        })
-
-        const [ideaRes, commentsRes] = await Promise.all([ideaPromise, commentsPromise])
+        const ideaRes = await API.get(`/api/ideas/${id}`)
+        let commentsRes = []
+        try {
+          const cRes = await API.get(`/api/ideas/${id}/comments`)
+          commentsRes = cRes.data || []
+        } catch (err) {
+          if (err?.response?.status === 404) {
+            commentsRes = []
+          } else {
+            throw err
+          }
+        }
 
         if (!mounted) return
         setIdea(ideaRes.data || null)
-        setComments((commentsRes.data || []).slice().reverse()) // newest first
+        setComments((commentsRes || []).slice().reverse())
       } catch (err) {
         console.error('Failed to load idea or comments', err)
         if (!mounted) return
-        const msg = err?.response?.data?.detail || err?.response?.data || err.message || 'Failed to load idea'
-        setError(msg)
+        setError(err?.response?.data?.detail || err.message || 'Failed to load idea')
         setIdea(null)
         setComments([])
       } finally {
@@ -85,27 +87,24 @@ export default function IdeaPage() {
       optimistic: true,
     }
 
-    // optimistic UI
     setComments(prev => [tempComment, ...prev])
     setCommentText('')
     scrollCommentsToTop()
 
     try {
       const res = await API.post(`/api/ideas/${id}/comments`, { content })
-      // If backend returns created comment, swap in
       if (res?.data?.id) {
+        // replace temp with server comment
         setComments(prev => prev.map(c => (String(c.id) === tempId ? res.data : c)))
       } else {
-        // fallback: re-fetch authoritative list
+        // fallback: reload comments
         const cRes = await API.get(`/api/ideas/${id}/comments`)
         setComments((cRes.data || []).slice().reverse())
       }
     } catch (err) {
       console.error('Comment post failed', err)
-      // Nice alert: show server message if present, otherwise entire error JSON
-      const serverMsg = err?.response?.data?.detail || err?.response?.data || err?.message
-      alert(typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg))
-      // remove optimistic
+      alert(err?.response?.data?.detail || 'Failed to post comment')
+      // remove optimistic temp
       setComments(prev => prev.filter(c => String(c.id) !== tempId))
     } finally {
       setPosting(false)
@@ -140,8 +139,7 @@ export default function IdeaPage() {
       setIdea(res.data)
     } catch (err) {
       console.error('Vote failed', err)
-      const serverMsg = err?.response?.data?.detail || err?.response?.data || err?.message
-      alert(typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg))
+      alert(err?.response?.data?.detail || 'Failed to like')
       setIdea(prev)
     } finally {
       setVoting(false)
@@ -162,7 +160,7 @@ export default function IdeaPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-6xl mx-auto p-4 grid md:grid-cols-3 gap-6">
-        {/* LEFT: Main post */}
+        {/* LEFT: Main post (col-span 2 on md) */}
         <div className="md:col-span-2">
           <div className="flex items-center gap-3 mb-4">
             <button onClick={() => nav(-1)} className="px-3 py-1 rounded border text-sm">Back</button>
@@ -170,13 +168,13 @@ export default function IdeaPage() {
           </div>
 
           <article className="bg-white rounded shadow-sm p-4 mb-4">
+            {/* Author header (LinkedIn-like) */}
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-xl text-gray-600">
                   {idea.owner_name ? (idea.owner_name[0] || 'U').toUpperCase() : 'U'}
                 </div>
               </div>
-
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div>
@@ -184,13 +182,16 @@ export default function IdeaPage() {
                     <div className="text-xs text-gray-500">{idea.owner_title || 'Member'}</div>
                     <div className="text-xs text-gray-400 mt-1">{idea.category_name || idea.category || 'General'} • {fmt(idea.created_at)}</div>
                   </div>
+                  {/* more actions icon or menu could go here */}
                 </div>
 
+                {/* content */}
                 <div className="mt-3 text-gray-800 whitespace-pre-wrap leading-relaxed">
                   <h2 className="text-lg font-semibold mb-2">{idea.title}</h2>
                   <div className="text-sm">{idea.description || 'No description provided.'}</div>
                 </div>
 
+                {/* attachments (if any) */}
                 {idea.attachments && idea.attachments.length > 0 && (
                   <div className="mt-3 space-y-2">
                     {idea.attachments.map((a, i) => (
@@ -199,6 +200,7 @@ export default function IdeaPage() {
                   </div>
                 )}
 
+                {/* actions row */}
                 <div className="mt-4 border-t pt-3 flex items-center gap-3">
                   <button
                     onClick={handleLike}
@@ -211,15 +213,27 @@ export default function IdeaPage() {
                     <span className="text-sm">{voting ? '...' : 'Like'}</span>
                   </button>
 
-                  <button onClick={() => textareaRef.current?.focus()} className="px-3 py-1 rounded border text-sm">Comment</button>
-                  <button onClick={() => alert('Share is not implemented yet')} className="px-3 py-1 rounded border text-sm">Share</button>
+                  <button
+                    onClick={() => textareaRef.current?.focus()}
+                    className="px-3 py-1 rounded border text-sm"
+                  >
+                    Comment
+                  </button>
 
-                  <div className="ml-auto text-sm text-gray-600">Likes: <span className="font-medium">{idea.score ?? 0}</span></div>
+                  <button
+                    onClick={() => alert('Share is not implemented yet')}
+                    className="px-3 py-1 rounded border text-sm"
+                  >
+                    Share
+                  </button>
+
+                  <div className="ml-auto text-sm text-gray-600">Score: <span className="font-medium">{idea.score ?? 0}</span></div>
                 </div>
               </div>
             </div>
           </article>
 
+          {/* Comments section */}
           <section className="mb-20">
             <h3 className="text-lg font-semibold mb-3">Comments ({comments.length})</h3>
 
@@ -241,6 +255,7 @@ export default function IdeaPage() {
           </section>
         </div>
 
+        {/* RIGHT: Sidebar */}
         <aside className="hidden md:block">
           <div className="sticky top-6 space-y-4">
             <div className="bg-white p-4 rounded shadow-sm">
@@ -255,6 +270,7 @@ export default function IdeaPage() {
             <div className="bg-white p-4 rounded shadow-sm">
               <div className="text-sm text-gray-500">Related</div>
               <div className="mt-3 text-sm text-gray-700">
+                {/* placeholder related ideas — hook up when /api/ideas?related available */}
                 <div className="mb-2">— Related idea A</div>
                 <div className="mb-2">— Related idea B</div>
                 <div className="mb-2">— Related idea C</div>
@@ -264,8 +280,8 @@ export default function IdeaPage() {
         </aside>
       </div>
 
-      {/* Fixed comment input bar: use bottom-0 so Tailwind positions properly */}
-      <div className="fixed left-0 right-0 bottom-15 bg-white border-t p-3">
+      {/* Fixed comment input bar (mobile & desktop) */}
+      <div className="fixed left-0 right-0 bottom-25 bg-white border-t p-3">
         <div className="max-w-6xl mx-auto flex items-start gap-3">
           <textarea
             ref={textareaRef}

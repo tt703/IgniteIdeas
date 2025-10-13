@@ -13,8 +13,7 @@ export default function Topbar() {
         <header className="w-full bg-white shadow p-3 flex items-center justify-between sticky top-0 z-20">
             <div className="flex items-center gap-3">
              <Link to="/" className="flex items-center gap-2">
-               <img src="../assets//react.png" alt="Logo" className="img-fluid rounded" />
-              <span className="font-semibold text-lg">IgniteIdeas</span>
+              <span className="font-bold text-lg">IgniteIdeas</span>
              </Link>
             </div>
 
