@@ -46,5 +46,5 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/yourusername/IgniteIdeas.git](https://github.com/yourusername/IgniteIdeas.git)
+git clone [https://github.com/tt703/IgniteIdeas.git](https://github.com/tt703/IgniteIdeas.git)
 cd IgniteIdeas
